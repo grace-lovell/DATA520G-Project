@@ -1,0 +1,179 @@
+---
+title: "Data Exploration"
+author: "Gracie Lovell"
+date: "2026-02-10"
+output: html_document
+runtime: shiny
+---
+
+```{r}
+library(tidyverse)
+library(readr)
+library(corrplot)
+library(shiny)
+
+apartments <- read_delim("apartments_for_rent_classified_100K.csv", delim = ";")
+crime_40_60 <- read_csv("crime_40_60.csv")
+crime_60_100 <- read_csv("crime_60_100.csv")
+crime_100_250 <- read_csv("crime_100_250.csv")
+crime_250_plus <- read_csv("crime_250_plus.csv")
+```
+
+```{r}
+apartments$bathrooms <- as.numeric(as.character(apartments$bathrooms))
+
+str(apartments)
+names(apartments)
+summary(apartments)
+colSums(is.na(apartments))
+```
+
+```{r}
+crime_40_60$violent_crime <- as.numeric(as.character(crime_40_60$violent_crime))
+crime_40_60$rape <- as.numeric(as.character(crime_40_60$rape))
+crime_40_60$agrv_assault <- as.numeric(as.character(crime_40_60$agrv_assault))
+crime_40_60$prop_crime <- as.numeric(as.character(crime_40_60$prop_crime))
+crime_40_60$burglary <- as.numeric(as.character(crime_40_60$burglary))
+
+str(crime_40_60)
+names(crime_40_60)
+summary(crime_40_60)
+colSums(is.na(crime_40_60))
+```
+
+```{r}
+crime_60_100$violent_crime <- as.numeric(as.character(crime_60_100$violent_crime))
+crime_60_100$murder <- as.numeric(as.character(crime_60_100$murder))
+crime_60_100$rape <- as.numeric(as.character(crime_60_100$rape))
+crime_60_100$prop_crime <- as.numeric(gsub(",", "", crime_60_100$prop_crime))
+crime_60_100$burglary <- as.numeric(gsub(",", "", crime_60_100$burglary))
+
+str(crime_60_100)
+names(crime_60_100)
+summary(crime_60_100)
+colSums(is.na(crime_60_100))
+```
+
+```{r}
+crime_100_250$population <- as.numeric(as.character(crime_100_250$population))
+crime_100_250$violent_crime <- as.numeric(as.character(crime_100_250$violent_crime))
+crime_100_250$murder <- as.numeric(as.character(crime_100_250$murder))
+crime_100_250$rape <- as.numeric(as.character(crime_100_250$rape))
+crime_100_250$robbery <- as.numeric(as.character(crime_100_250$robbery))
+crime_100_250$agrv_assault <- as.numeric(as.character(crime_100_250$agrv_assault))
+crime_100_250$prop_crime <- as.numeric(as.character(crime_100_250$prop_crime))
+crime_100_250$burglary <- as.numeric(as.character(crime_100_250$burglary))
+crime_100_250$larceny <- as.numeric(as.character(crime_100_250$larceny))
+crime_100_250$vehicle_theft <- as.numeric(as.character(crime_100_250$vehicle_theft))
+
+str(crime_100_250)
+names(crime_100_250)
+summary(crime_100_250)
+colSums(is.na(crime_100_250))
+```
+
+```{r}
+str(crime_250_plus)
+names(crime_250_plus)
+summary(crime_250_plus)
+colSums(is.na(crime_250_plus))
+```
+
+```{r}
+apartments_num <- apartments %>%
+  select(where(is.numeric))
+head(apartments_num)
+
+crime_40_60_num <- crime_40_60 %>%
+  select(where(is.numeric))
+head(crime_40_60_num)
+
+crime_60_100_num <- crime_60_100 %>%
+  select(where(is.numeric))
+head(crime_60_100_num)
+
+crime_100_250_num <- crime_100_250 %>%
+  select(where(is.numeric))
+head(crime_100_250_num)
+
+crime_250_plus_num <- crime_250_plus %>%
+  select(where(is.numeric))
+head(crime_250_plus_num)
+```
+
+```{r}
+apartments_cor <- cor(apartments_num, use = "complete.obs")
+apartments_cor
+corrplot(apartments_cor, method = "shade", type = "lower")
+
+crime_40_60_cor <- cor(crime_40_60_num, use = "complete.obs")
+crime_40_60_cor
+corrplot(crime_40_60_cor, method = "shade", type = "lower")
+
+crime_60_100_cor <- cor(crime_60_100_num, use = "complete.obs")
+crime_60_100_cor
+corrplot(crime_60_100_cor, method = "shade", type = "lower")
+
+crime_100_250_cor <- cor(crime_100_250_num, use = "complete.obs")
+crime_100_250_cor
+corrplot(crime_100_250_cor, method = "shade", type = "lower")
+
+crime_250_plus_cor <- cor(crime_250_plus_num, use = "complete.obs")
+crime_250_plus_cor
+corrplot(crime_250_plus_cor, method = "shade", type = "lower")
+```
+
+```{r}
+data_list <- list(
+  apartments = apartments,
+  crime_40_60 = crime_40_60, 
+  crime_60_100 = crime_60_100,
+  crime_100_250 = crime_100_250,
+  crime_250_plus = crime_250_plus
+)
+
+selectInput("xdataset", "Choose X Dataset: ", choices = names(data_list), selected = "apartments")
+uiOutput("xvar_ui")
+
+selectInput("ydataset", "Choose Y Dataset: ", choices = names(data_list), selected = "crime_40_60")
+uiOutput("yvar_ui")
+```
+
+```{r}
+output$xvar_ui <- renderUI({
+  req(input$xdataset)
+  xdataset <- data_list[[input$xdataset]]
+  selectInput("xvar", "Choose X Variable:", choices = names(xdataset))
+})
+
+output$yvar_ui <- renderUI({
+  req(input$ydataset)
+  ydataset <- data_list[[input$ydataset]]
+  selectInput("yvar", "Choose Y Variable:", choices = names(ydataset))
+})
+```
+
+```{r}
+renderPlot({
+  req(input$xdataset, input$ydataset, input$xvar, input$yvar)
+  df_x <- data_list[[input$xdataset]]
+  df_y <- data_list[[input$ydataset]]
+  x <- df_x[[input$xvar]]
+  y <- df_y[[input$yvar]]
+  
+  min_len <- min(length(x), length(y))
+  x <- x[1:min_len]
+  y <- y[1:min_len]
+  
+  if(is.character(x)) x <- as.factor(x)
+  if(is.character(y)) y <- as.factor(y)
+  
+  keep <- rep(TRUE, length(x))
+  if(is.numeric(x)) keep <- keep & is.finite(x)
+  if(is.numeric(y)) keep <- keep & is.finite(y)
+  
+  plot(x, y, main = "Dataset Comparison", xlab = paste(input$xdataset, "-", input$xvar),
+       ylab = paste(input$ydataset, "-", input$yvar), pch = 19, col = "blue")
+})
+```
+
