@@ -1,0 +1,111 @@
+---
+title: "DataAnalysis"
+author: "Gracie Lovell"
+date: "2026-03-24"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(maps)
+library(randomForest)
+merge <- read_csv("merged_dataset.csv")
+```
+
+# Linear Regression
+
+## Linear Model with all Crime Variables
+
+```{r}
+price_lm <- lm(price ~ square_feet + avg_violent + avg_murder + avg_rape + avg_robbery + avg_agrv_assault + avg_prop + avg_burglary + avg_larceny + avg_vehicle_theft, data = merge)
+price_lm
+summary(price_lm)
+```
+
+## Linear Model with Only Basic Crime Variables
+
+```{r}
+price_lm2 <- lm(price ~ square_feet + avg_violent + avg_prop, data = merge)
+price_lm2
+summary(price_lm2)
+```
+
+## Linear Model with Only Specific Crime Variables
+
+```{r}
+price_lm3 <- lm(price ~ square_feet + avg_murder + avg_rape + avg_robbery + avg_agrv_assault + avg_burglary + avg_larceny + avg_vehicle_theft, data = merge)
+price_lm3
+summary(price_lm3)
+```
+
+Square footage is the strongest predictor of apartment price, with each additional square foot increasing rent by approximately $0.96. Certain violent crimes, such as murder and rape, show a strong, negative relationship with rental prices, suggesting that more severe crime may reduce housing demand. Other offenses, such as burglary and larceny, have weaker, negative relationships, suggesting that they have a smaller impact on rent prices. However, other crimes such as robbery, aggravated assault, and vehicle theft show a positive relationship with price. This likely reflects underlying urban characteristics, where higher-cost cities tend to experience higher rates of certain crimes. Overall, the model suggests that both housing characteristics and crime patterns play a role in determining rental prices.
+
+The detailed crime model (R² = 0.339) outperformed the aggregated crime model (R² = 0.260), indicating that disaggregated crime variables provide more explanatory power.
+
+The model explains approximately 34% of the variation in apartment prices. While this may appear modest, it is consistent with expectations for real-world housing data, where prices are influenced by many unobserved factors such as location quality, amenities, and neighborhood characteristics. Therefore, the model provides meaningful insight despite not capturing all sources of variation.
+
+# Random Forests
+
+```{r}
+rf_data <- merge %>%
+  select(price, square_feet, avg_murder, avg_rape, avg_robbery, avg_agrv_assault, avg_burglary, avg_larceny, avg_vehicle_theft) %>%
+  na.omit()
+
+price_rf <- randomForest(price ~ ., data = rf_data, ntree = 500, importance = TRUE)
+
+print(price_rf)
+importance(price_rf)
+varImpPlot(price_rf)
+```
+
+The larger dataset is for predictive power and for maximizing explained variance. This model explains about 45% of the variation in apartment prices, which is 11% higher than our original linear model at 34%. The top four variables that improved accuracy (% Increase in MSE) were square_feet (50.39), avg_rape (30.00), avg_larceny (28.36), and avg_burglary (27.58). The top four variables that reduce prediction error (Increase in Node Purity) were square_feet (12,435,656,691), avg_rape (6,025,454,687), avg_larceny (5,028,460,816), and avg_vehicle_theft (3,442,330,822).
+
+Obviously, square_feet is the most important predictor, which makes sense. Bigger apartments usually cost more.
+
+Different types of crime affect rent differently, their impact on price does not follow a simple straight-line pattern.
+
+# K-Means Clustering
+
+```{r}
+cluster_data <- merge %>%
+  select(price, square_feet, avg_violent, avg_prop, latitude, longitude) %>%
+  na.omit()
+
+cluster_scaled <- scale(cluster_data %>% select(price, square_feet, avg_violent, avg_prop))
+```
+
+The smaller dataset is for simplicity, since we don't need specific crimes to see the high or low crime areas.
+
+```{r}
+set.seed(123)
+price_km <- kmeans(cluster_scaled, centers = 3)
+cluster_data$cluster <- price_km$cluster
+
+aggregate(cluster_data, by = list(cluster = cluster_data$cluster), mean)
+```
+
+Cluster 1 — high price, high sqft, medium violent crime, low property crime
+These are high-end apartments in safer areas with more space.
+
+Cluster 2 — low price, medium sqft, high violent crime, high property crime
+These are cheaper apartments located in high-crime areas.
+
+Cluster 3 — medium price, low sqft, low violent crime, medium property crime
+These are moderately priced apartments with mixed safety levels and smaller space.
+
+```{r}
+us_map <- map_data("state")
+
+cluster_data <- cluster_data %>%
+  filter(latitude > 25 & longitude > -125)
+
+ggplot() +
+  geom_polygon(data = us_map, 
+               aes(x = long, y = lat, group = group),
+               fill = "gray90", color = "white") +
+  geom_point(data = cluster_data,
+             aes(x = longitude, y = latitude, color = factor(cluster, labels = c("High Price", "Low Price", "Medium Price"))),
+             alpha = 0.4, size = 1) +
+  labs(color = "Cluster") +
+  theme_minimal()
+```
