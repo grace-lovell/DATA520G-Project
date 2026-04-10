@@ -1,0 +1,305 @@
+---
+title: "Data Exploration & Cleaning"
+author: "Gracie Lovell"
+date: "2026-02-10"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+library(tidyverse)
+library(readr)
+library(corrplot)
+
+apartments <- read_delim("apartments_for_rent_classified_100K.csv", delim = ";")
+crime_40_60 <- read_csv("crime_40_60.csv")
+crime_60_100 <- read_csv("crime_60_100.csv")
+crime_100_250 <- read_csv("crime_100_250.csv")
+crime_250_plus <- read_csv("crime_250_plus.csv")
+```
+
+# Apartments Summary
+
+```{r}
+apartments$bathrooms <- as.numeric(as.character(apartments$bathrooms))
+
+str(apartments)
+names(apartments)
+summary(apartments)
+colSums(is.na(apartments))
+```
+
+# 40,000 to 60,000 Crime Summary
+
+```{r}
+crime_40_60$violent_crime <- as.numeric(as.character(crime_40_60$violent_crime))
+crime_40_60$rape <- as.numeric(as.character(crime_40_60$rape))
+crime_40_60$agrv_assault <- as.numeric(as.character(crime_40_60$agrv_assault))
+crime_40_60$prop_crime <- as.numeric(as.character(crime_40_60$prop_crime))
+crime_40_60$burglary <- as.numeric(as.character(crime_40_60$burglary))
+
+str(crime_40_60)
+names(crime_40_60)
+summary(crime_40_60)
+colSums(is.na(crime_40_60))
+```
+
+# 60,000 to 100,000 Crime Summary
+
+```{r}
+crime_60_100$violent_crime <- as.numeric(as.character(crime_60_100$violent_crime))
+crime_60_100$murder <- as.numeric(as.character(crime_60_100$murder))
+crime_60_100$rape <- as.numeric(as.character(crime_60_100$rape))
+crime_60_100$prop_crime <- as.numeric(gsub(",", "", crime_60_100$prop_crime))
+crime_60_100$burglary <- as.numeric(gsub(",", "", crime_60_100$burglary))
+
+str(crime_60_100)
+names(crime_60_100)
+summary(crime_60_100)
+colSums(is.na(crime_60_100))
+```
+
+# 100,000 to 250,000 Crime Summary
+
+```{r}
+crime_100_250$population <- as.numeric(as.character(crime_100_250$population))
+crime_100_250$violent_crime <- as.numeric(as.character(crime_100_250$violent_crime))
+crime_100_250$murder <- as.numeric(as.character(crime_100_250$murder))
+crime_100_250$rape <- as.numeric(as.character(crime_100_250$rape))
+crime_100_250$robbery <- as.numeric(as.character(crime_100_250$robbery))
+crime_100_250$agrv_assault <- as.numeric(as.character(crime_100_250$agrv_assault))
+crime_100_250$prop_crime <- as.numeric(as.character(crime_100_250$prop_crime))
+crime_100_250$burglary <- as.numeric(as.character(crime_100_250$burglary))
+crime_100_250$larceny <- as.numeric(as.character(crime_100_250$larceny))
+crime_100_250$vehicle_theft <- as.numeric(as.character(crime_100_250$vehicle_theft))
+
+str(crime_100_250)
+names(crime_100_250)
+summary(crime_100_250)
+colSums(is.na(crime_100_250))
+```
+
+# 250,000+ Crime Summary
+
+```{r}
+crime_250_plus <- crime_250_plus %>%
+  select(-total_crime, -arson) %>%
+  rename("violent_crime" = "tot_violent_crime") %>%
+  rename("prop_crime" = "tot_prop_crim") %>%
+  mutate(states = if_else(states == "North Carolina8", "North Carolina", states)) %>%
+  mutate(states = str_trim(states)) %>%
+  select(states, cities, population, violent_crime, murder, rape, robbery, agrv_assault, prop_crime, burglary, larceny, vehicle_theft)
+
+str(crime_250_plus)
+names(crime_250_plus)
+summary(crime_250_plus)
+colSums(is.na(crime_250_plus))
+```
+
+# Creation of Numeric Datasets
+
+```{r}
+apartments_num <- apartments %>%
+  select(where(is.numeric))
+head(apartments_num)
+
+crime_40_60_num <- crime_40_60 %>%
+  select(where(is.numeric))
+head(crime_40_60_num)
+
+crime_60_100_num <- crime_60_100 %>%
+  select(where(is.numeric))
+head(crime_60_100_num)
+
+crime_100_250_num <- crime_100_250 %>%
+  select(where(is.numeric))
+head(crime_100_250_num)
+
+crime_250_plus_num <- crime_250_plus %>%
+  select(where(is.numeric))
+head(crime_250_plus_num)
+```
+
+# Correlation Plots of Each Dataset
+
+```{r}
+apartments_cor <- cor(apartments_num, use = "complete.obs")
+apartments_cor
+corrplot(apartments_cor, method = "shade", type = "lower")
+
+crime_40_60_cor <- cor(crime_40_60_num, use = "complete.obs")
+crime_40_60_cor
+corrplot(crime_40_60_cor, method = "shade", type = "lower")
+
+crime_60_100_cor <- cor(crime_60_100_num, use = "complete.obs")
+crime_60_100_cor
+corrplot(crime_60_100_cor, method = "shade", type = "lower")
+
+crime_100_250_cor <- cor(crime_100_250_num, use = "complete.obs")
+crime_100_250_cor
+corrplot(crime_100_250_cor, method = "shade", type = "lower")
+
+crime_250_plus_cor <- cor(crime_250_plus_num, use = "complete.obs")
+crime_250_plus_cor
+corrplot(crime_250_plus_cor, method = "shade", type = "lower")
+```
+
+# Summary of Combined Crime Dataset
+
+```{r}
+crime <- bind_rows(
+  crime_40_60 %>% mutate(pop_group = "40-60"), 
+  crime_60_100 %>% mutate(pop_group = "60-100"), 
+  crime_100_250 %>% mutate(pop_group = "100-250"), 
+  crime_250_plus %>% mutate(pop_group = "250+")
+)
+
+str(crime)
+names(crime)
+summary(crime)
+colSums(is.na(crime))
+```
+
+# Creation of Numeric Crime Dataset & Correlation Plot
+
+```{r}
+crime_num <- crime %>%
+  select(where(is.numeric))
+head(crime_num)
+
+crime_cor <- cor(crime_num, use = "complete.obs")
+crime_cor
+corrplot(crime_cor, method = "shade", type = "lower")
+```
+
+# Creation of Clean Datasets
+
+```{r}
+crime_clean <- na.omit(crime)
+
+crime_clean <- crime_clean %>%
+  mutate(states = case_when(
+    states == "Alabama" ~ "AL",
+    states == "Alaska" ~ "AK",
+    states == "Arizona" ~ "AZ",
+    states == "Arkansas" ~ "AR",
+    states == "California" ~ "CA",
+    states == "Colorado" ~ "CO",
+    states == "Connecticut" ~ "CT",
+    states == "Delaware" ~ "DE",
+    states == "District of Columbia" ~ "DC",
+    states == "Florida" ~ "FL",
+    states == "Georgia" ~ "GA",
+    states == "Hawaii" ~ "HI",
+    states == "Idaho" ~ "ID",
+    states == "Illinois" ~ "IL",
+    states == "Indiana" ~ "IN",
+    states == "Iowa" ~ "IA",
+    states == "Kansas" ~ "KS",
+    states == "Kentucky" ~ "KY",
+    states == "Louisiana" ~ "LA",
+    states == "Maine" ~ "ME",
+    states == "Maryland" ~ "MD",
+    states == "Massachusetts" ~ "MA",
+    states == "Michigan" ~ "MI",
+    states == "Minnesota" ~ "MN",
+    states == "Mississippi" ~ "MS",
+    states == "Missouri" ~ "MO",
+    states == "Montana" ~ "MT",
+    states == "Nebraska" ~ "NE",
+    states == "Nevada" ~ "NV",
+    states == "New Hampshire" ~ "NH",
+    states == "New Jersey" ~ "NJ",
+    states == "New Mexico" ~ "NM",
+    states == "New York" ~ "NY",
+    states == "North Carolina" ~ "NC",
+    states == "North Dakota" ~ "ND",
+    states == "Ohio" ~ "OH",
+    states == "Oklahoma" ~ "OK",
+    states == "Oregon" ~ "OR",
+    states == "Pennsylvania" ~ "PA",
+    states == "Rhode Island" ~ "RI",
+    states == "South Carolina" ~ "SC",
+    states == "South Dakota" ~ "SD",
+    states == "Tennessee" ~ "TN",
+    states == "Texas" ~ "TX",
+    states == "Utah" ~ "UT",
+    states == "Vermont" ~ "VT",
+    states == "Virginia" ~ "VA",
+    states == "Washington" ~ "WA",
+    states == "West Virginia" ~ "WV",
+    states == "Wisconsin" ~ "WI",
+    states == "Wyoming" ~ "WY"
+  )) %>%
+  mutate(cities = str_trim(str_split(cities, ",", simplify = TRUE)[,1]))
+
+apartments_clean <- apartments %>%
+  select(-id, -category, -title, -body, -amenities, -bathrooms, -bedrooms, -currency, -fee, -has_photo, -pets_allowed, -price_type, -address, -source, -time)
+```
+
+# Creation of Aggregated Crime Dataset
+
+```{r}
+crime_state <- crime_clean %>%
+  group_by(states) %>%
+  summarise(
+    avg_violent = mean(violent_crime),
+    avg_murder = mean(murder),
+    avg_rape = mean(rape),
+    avg_robbery = mean(robbery),
+    avg_agrv_assault = mean(agrv_assault),
+    avg_prop = mean(prop_crime),
+    avg_burglary = mean(burglary),
+    avg_larceny = mean(larceny),
+    avg_vehicle_theft = mean(vehicle_theft)
+  )
+```
+
+# Merging the Two Datasets
+
+```{r}
+merge <- apartments_clean %>%
+  inner_join(crime_state, by = c("state" = "states")) %>%
+  drop_na()
+```
+
+# Exploration of the Merged Dataset
+
+```{r}
+ggplot(merge, aes(x = square_feet, y = price, color = avg_violent)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", color = "lightblue") +
+  scale_color_viridis_c(option = "plasma") +
+  coord_cartesian(xlim = c(0, 10000), ylim = c(0, 30000)) +
+  theme_minimal()
+```
+
+There is a strong positive relationship between price and square feet. The color suggests that crime does not linearly correlate with price, meaning that the relationship is much more nuanced and complicated.
+
+```{r}
+merge %>%
+  group_by(state) %>%
+  summarise(avg_price = mean(price, na.rm = FALSE),
+            median_price = median(price, na.rm = TRUE),
+            n = n()) %>%
+  arrange(desc(avg_price))
+```
+
+Hawaii has the highest avg price despite only having 31 observations. Many of the top-priced states show that the avg is higher than the median which means that the distribution is slightly right-skewed. However, some of the lower priced states have a smaller difference between the numbers, suggesting that there is a more even distribution in these states.
+
+```{r}
+merge_num <- merge %>%
+  select(where(is.numeric))
+merge_cor <- cor(merge_num, use = "complete.obs")
+corrplot(merge_cor, method = "shade", type = "lower")
+```
+
+Price is negatively correlated with most crime types, which tells us that higher priced areas tend to have lower crime rates. However, some specific crime types show weaker correlations with price. Therefore, higher priced areas are generally associated with safer neighborhoods, though specific crimes behave differently. Price and square feet have a correlation of about 0.4, which means there is a moderate positive correlation between the two variables. Lastly, crime types seem to cluster together. For example, violent_crime has higher correlations with avg_murder, avg_rape, avg_robbery, and avg_agrv_assault. Meanwhile, prop_crime has higher correlations with avg_burglary, avg_larceny, and avg_vehicle theft. One interesting thing to note is that there is a positive correlation between price and avg_vehicle_theft. This could mean that higher priced areas have a higher theft rate because there are nicer cars present in that area.
+
+# Creation of Cleaned CSV File
+
+```{r}
+write_csv(merge, "merged_dataset.csv")
+```
+
